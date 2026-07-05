@@ -1,4 +1,26 @@
-const STORAGE_KEY = "team-mirai-tohoku-ouen-v1";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase,
+  onValue,
+  push,
+  ref,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDBtTnf1d-YKcbmbqPHOQ6DBifphFiPSSM",
+  authDomain: "team-mira-tohoku-ohen.firebaseapp.com",
+  databaseURL: "https://team-mira-tohoku-ohen-default-rtdb.firebaseio.com",
+  projectId: "team-mira-tohoku-ohen",
+  storageBucket: "team-mira-tohoku-ohen.firebasestorage.app",
+  messagingSenderId: "251457536322",
+  appId: "1:251457536322:web:f1f7356943a05b48ae08db",
+  measurementId: "G-GJQ5TBKL0D",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const votesRef = ref(db, "ouen/votes");
 
 const STYLES = [
   { id: "supporter", emoji: "🙋", label: "現地でサポーターとして参加する" },
@@ -95,25 +117,13 @@ const PREFECTURES = [
   },
 ];
 
-const SEED_VOTES = [
-  { prefectureId: "miyagi", cityId: "sendai", styleId: "supporter" },
-  { prefectureId: "miyagi", cityId: "sendai", styleId: "listen" },
-  { prefectureId: "miyagi", cityId: "ishinomaki", styleId: "heart" },
-  { prefectureId: "fukushima", cityId: "koriyama", styleId: "stream" },
-  { prefectureId: "fukushima", cityId: "iwaki", styleId: "heart" },
-  { prefectureId: "aomori", cityId: "aomori-city", styleId: "listen" },
-  { prefectureId: "iwate", cityId: "morioka", styleId: "stream" },
-  { prefectureId: "akita", cityId: "akita-city", styleId: "heart" },
-  { prefectureId: "yamagata", cityId: "yamagata-city", styleId: "supporter" },
-  { prefectureId: "outside", cityId: "outside", styleId: "stream" },
-];
-
 const state = {
   selectedPrefectureId: null,
   selectedCityId: null,
   mapScale: "tohoku",
   submitted: false,
-  votes: loadVotes(),
+  votes: [],
+  isSubmitting: false,
 };
 
 const els = {
@@ -138,19 +148,6 @@ const els = {
   outsideArea: document.querySelector("#outside-area"),
   statsList: document.querySelector("#stats-list"),
 };
-
-function loadVotes() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    return Array.isArray(saved) ? saved : SEED_VOTES;
-  } catch {
-    return SEED_VOTES;
-  }
-}
-
-function saveVotes() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.votes));
-}
 
 function prefectureById(id) {
   return PREFECTURES.find((prefecture) => prefecture.id === id);
@@ -196,10 +193,13 @@ function createButton(className, text, onClick) {
 function renderPrefectureButtons() {
   els.prefectureGrid.innerHTML = "";
   PREFECTURES.forEach((prefecture) => {
-    const button = createButton("region-btn", prefecture.name, () => selectPrefecture(prefecture.id));
+    const count = countVotes({ prefectureId: prefecture.id });
+    const suffix = count ? `（${count}）` : "";
+    const button = createButton("region-btn", `${prefecture.name}${suffix}`, () => selectPrefecture(prefecture.id));
     if (state.selectedPrefectureId === prefecture.id) button.classList.add("is-selected");
     els.prefectureGrid.appendChild(button);
   });
+
   const outside = createButton("region-btn outside", "🗾 東北外から応援", () => {
     state.selectedPrefectureId = "outside";
     state.selectedCityId = "outside";
@@ -231,6 +231,7 @@ function renderStyleButtons() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "status-btn";
+    button.disabled = state.isSubmitting;
     button.innerHTML = `<span class="emoji">${style.emoji}</span><span>${style.label}</span>`;
     button.addEventListener("click", () => submitVote(style.id));
     els.styleGrid.appendChild(button);
@@ -262,25 +263,40 @@ function showStyleStep() {
   els.stepStyle.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function submitVote(styleId) {
+async function submitVote(styleId) {
   const prefectureId = state.selectedPrefectureId;
   const cityId = state.selectedCityId;
-  if (!prefectureId || !cityId) return;
+  if (!prefectureId || !cityId || state.isSubmitting) return;
 
-  state.votes.push({ prefectureId, cityId, styleId, createdAt: new Date().toISOString() });
-  state.submitted = true;
-  saveVotes();
+  state.isSubmitting = true;
+  renderStyleButtons();
 
-  const prefecture = prefectureById(prefectureId);
-  const city = cityById(prefecture, cityId);
-  const style = styleById(styleId);
-  const areaName = prefecture ? `${prefecture.name}・${city.name}` : "東北外";
+  try {
+    await push(votesRef, {
+      prefectureId,
+      cityId,
+      styleId,
+      createdAt: serverTimestamp(),
+    });
 
-  els.submittedMsg.innerHTML = `<strong>応援ありがとうございます！</strong>${areaName}から「${style.emoji} ${style.label}」で受け取りました。`;
-  els.submittedMsg.classList.remove("is-hidden");
-  els.resetBtn.classList.remove("is-hidden");
-  els.stepStyle.classList.add("is-hidden");
-  render();
+    state.submitted = true;
+    const prefecture = prefectureById(prefectureId);
+    const city = cityById(prefecture, cityId);
+    const style = styleById(styleId);
+    const areaName = prefecture ? `${prefecture.name}・${city.name}` : "東北外";
+
+    els.submittedMsg.innerHTML = `<strong>応援ありがとうございます！</strong>${areaName}から「${style.emoji} ${style.label}」で受け取りました。`;
+    els.submittedMsg.classList.remove("is-hidden");
+    els.resetBtn.classList.remove("is-hidden");
+    els.stepStyle.classList.add("is-hidden");
+  } catch (error) {
+    els.submittedMsg.innerHTML = `<strong>送信できませんでした</strong>少し時間を置いて、もう一度お試しください。`;
+    els.submittedMsg.classList.remove("is-hidden");
+    console.error(error);
+  } finally {
+    state.isSubmitting = false;
+    render();
+  }
 }
 
 function resetForm() {
@@ -388,6 +404,7 @@ function render() {
 
   renderPrefectureButtons();
   renderCityButtons();
+  renderStyleButtons();
   renderScaleTabs();
   renderMap();
   renderStats();
@@ -413,6 +430,11 @@ els.scalePrefecture.addEventListener("click", () => {
 
 els.resetBtn.addEventListener("click", resetForm);
 
-renderStyleButtons();
 renderLegend();
 render();
+
+onValue(votesRef, (snapshot) => {
+  const data = snapshot.val() || {};
+  state.votes = Object.entries(data).map(([id, vote]) => ({ id, ...vote }));
+  render();
+});
