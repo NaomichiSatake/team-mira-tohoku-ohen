@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>チームみらい 東北 街頭演説 応援マップ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>📣応援の気持ちを表明しよう📣</h1>
+    <p>チームみらい　東北　街頭演説　応援マップ</p>
+  </header>
+
+  <div class="total-badge" aria-live="polite">
+    <span id="total-count">0</span><span>人が応援中</span>
+  </div>
+
+  <main>
+    <section class="card" id="step-prefecture">
+      <div class="step-heading">
+        <div>
+          <p class="card-title">あなたの県はどこですか？</p>
+          <p class="card-note">東北全体から県を選びます</p>
+        </div>
+        <div class="scale-pill">東北 &gt; 県</div>
+      </div>
+      <div class="region-grid" id="prefecture-grid"></div>
+    </section>
+
+    <section class="card is-hidden" id="step-city">
+      <div class="step-heading">
+        <div>
+          <p class="card-title"><span id="selected-prefecture-name"></span>のどこから応援しますか？</p>
+          <p class="card-note">県から市へ、もう一段階しぼれます</p>
+        </div>
+        <button class="text-btn" id="back-to-prefecture" type="button">県を選び直す</button>
+      </div>
+      <div class="scale-controls" role="tablist" aria-label="表示スケール">
+        <button class="scale-tab is-active" id="scale-tohoku" type="button">東北 &gt; 県</button>
+        <button class="scale-tab" id="scale-prefecture" type="button">県 &gt; 市</button>
+      </div>
+      <div class="region-grid" id="city-grid"></div>
+    </section>
+
+    <section class="card is-hidden" id="step-style">
+      <p class="card-title">参加スタイルを教えてください</p>
+      <div class="status-grid" id="style-grid"></div>
+    </section>
+
+    <div class="success-msg is-hidden" id="submitted-msg"></div>
+    <button class="reset-btn is-hidden" id="reset-btn" type="button">もう一度回答する</button>
+
+    <section class="card map-card">
+      <div class="map-head">
+        <div>
+          <p class="map-title" id="map-title">東北 応援マップ</p>
+          <p class="map-subtitle" id="map-subtitle">県ごとの応援人数を円の大きさで表示しています</p>
+        </div>
+        <div class="scale-pill" id="map-scale-pill">東北 &gt; 県</div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="map-wrap">
+        <svg id="map-svg" viewBox="0 0 460 520" role="img" aria-label="東北応援マップ"></svg>
+      </div>
+      <div id="outside-area" class="outside-cheer is-hidden"></div>
+      <div id="stats-list" class="stats-list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
